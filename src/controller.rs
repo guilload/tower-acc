@@ -29,7 +29,9 @@ impl<A: Algorithm> Controller<A> {
     /// Updates the algorithm with a completed request's outcome and resizes the
     /// semaphore to match the new concurrency limit.
     pub(crate) fn update(&mut self, rtt: Duration, is_error: bool, is_canceled: bool) {
-        self.algorithm.update(rtt, is_error, is_canceled);
+        let num_inflight = self.max_permits - self.semaphore.available_permits();
+        self.algorithm
+            .update(rtt, num_inflight, is_error, is_canceled);
         self.resize();
     }
 

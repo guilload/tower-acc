@@ -16,5 +16,5 @@ pub trait Algorithm {
     ///
     /// Implementations **must not** panic. This method is called while holding
     /// a shared mutex; a panic would poison it and abort on the next request.
-    fn update(&mut self, rtt: Duration, is_error: bool, is_canceled: bool);
+    fn update(&mut self, rtt: Duration, num_inflight: usize, is_error: bool, is_canceled: bool);
 }

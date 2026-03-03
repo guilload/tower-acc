@@ -48,7 +48,7 @@ impl Algorithm for Vegas {
         std::cmp::max(1, self.estimated_limit as usize)
     }
 
-    fn update(&mut self, rtt: Duration, is_error: bool, is_canceled: bool) {
+    fn update(&mut self, rtt: Duration, num_inflight: usize, is_error: bool, is_canceled: bool) {
         if is_canceled {
             return;
         }
@@ -76,6 +76,12 @@ impl Algorithm for Vegas {
                 return;
             }
         };
+
+        // Don't adjust the limit when the system is lightly loaded — low RTT
+        // is a misleading signal when few requests are in-flight.
+        if num_inflight * 2 < limit {
+            return;
+        }
 
         // Estimate queue depth: limit × (1 − rtt_noload / rtt).
         let rtt_nanos = rtt.as_nanos() as f64;
@@ -211,7 +217,7 @@ mod tests {
         vegas.rtt_noload = Some(Duration::from_millis(10));
 
         // RTT just slightly above baseline → small queue → should increase.
-        vegas.update(Duration::from_millis(11), false, false);
+        vegas.update(Duration::from_millis(11), 10, false, false);
         assert!(vegas.max_concurrency() > 10);
     }
 
@@ -221,7 +227,7 @@ mod tests {
         vegas.rtt_noload = Some(Duration::from_millis(10));
 
         // RTT far above baseline → large queue → should decrease.
-        vegas.update(Duration::from_millis(50), false, false);
+        vegas.update(Duration::from_millis(50), 10, false, false);
         assert!(vegas.max_concurrency() < 10);
     }
 
@@ -230,7 +236,7 @@ mod tests {
         let mut vegas = Vegas::builder().initial_limit(10).build();
         vegas.rtt_noload = Some(Duration::from_millis(10));
 
-        vegas.update(Duration::from_millis(10), true, false);
+        vegas.update(Duration::from_millis(10), 10, true, false);
         assert!(vegas.max_concurrency() < 10);
     }
 
@@ -243,7 +249,7 @@ mod tests {
         // alpha(10) = 3, beta(10) = 6. We need queue_size between 3 and 6.
         // queue = limit * (1 - noload/rtt) = 10 * (1 - 10/rtt)
         // For queue = 4: rtt = 10 / (1 - 4/10) = 10/0.6 ≈ 16.67ms
-        vegas.update(Duration::from_nanos(16_670_000), false, false);
+        vegas.update(Duration::from_nanos(16_670_000), 10, false, false);
         assert_eq!(vegas.max_concurrency(), 10);
     }
 
@@ -252,7 +258,7 @@ mod tests {
         let mut vegas = Vegas::builder().initial_limit(10).build();
         vegas.rtt_noload = Some(Duration::from_millis(10));
 
-        vegas.update(Duration::from_millis(50), false, true);
+        vegas.update(Duration::from_millis(50), 10, false, true);
         assert_eq!(vegas.max_concurrency(), 10);
     }
 
@@ -262,7 +268,7 @@ mod tests {
         vegas.rtt_noload = Some(Duration::from_millis(10));
 
         // Error → decrease. With smoothing 0.5, the change should be dampened.
-        vegas.update(Duration::from_millis(10), true, false);
+        vegas.update(Duration::from_millis(10), 100, true, false);
         let limit = vegas.max_concurrency();
         // Without smoothing: 100 - log10(100) = 98
         // With smoothing 0.5: 0.5 * 100 + 0.5 * 98 = 99
@@ -275,7 +281,7 @@ mod tests {
         vegas.rtt_noload = Some(Duration::from_millis(10));
 
         for _ in 0..100 {
-            vegas.update(Duration::from_millis(10), true, false);
+            vegas.update(Duration::from_millis(10), 1, true, false);
         }
         assert_eq!(vegas.max_concurrency(), 1);
     }
