@@ -68,7 +68,7 @@ impl Algorithm for Vegas {
         let rtt_noload = match self.rtt_noload {
             Some(current) if rtt < current => {
                 self.rtt_noload = Some(rtt);
-                rtt
+                return;
             }
             Some(current) => current,
             None => {
