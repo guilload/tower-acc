@@ -24,6 +24,7 @@ pub struct Vegas {
     decrease_fn: fn(f64) -> f64,
     probe_multiplier: usize,
     probe_count: usize,
+    probe_jitter: f64,
 }
 
 impl Vegas {
@@ -32,8 +33,25 @@ impl Vegas {
     }
 
     fn should_probe(&self, limit: usize) -> bool {
-        let interval = (0.75 * self.probe_multiplier as f64 * limit as f64) as usize;
+        let interval =
+            (self.probe_jitter * self.probe_multiplier as f64 * limit as f64) as usize;
         interval > 0 && self.probe_count >= interval
+    }
+
+    /// Returns a random jitter in [0.5, 1.0) using a simple xorshift on the
+    /// current probe count and estimated limit to avoid pulling in a RNG crate.
+    fn next_jitter(&self) -> f64 {
+        // Mix bits from the current state to produce a pseudo-random value.
+        let mut x = (self.probe_count as u64)
+            .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+            .wrapping_add(self.estimated_limit.to_bits());
+        x ^= x >> 30;
+        x = x.wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        x ^= x >> 27;
+        x = x.wrapping_mul(0x94D0_49BB_1331_11EB);
+        x ^= x >> 31;
+        // Map to [0.5, 1.0)
+        0.5 + (x >> 11) as f64 / (1u64 << 53) as f64 * 0.5
     }
 }
 
@@ -60,6 +78,7 @@ impl Algorithm for Vegas {
         // Periodically reset rtt_noload to track baseline changes.
         if self.should_probe(limit) {
             self.probe_count = 0;
+            self.probe_jitter = self.next_jitter();
             self.rtt_noload = Some(rtt);
             return;
         }
@@ -203,6 +222,7 @@ impl VegasBuilder {
             decrease_fn: self.decrease_fn,
             probe_multiplier: self.probe_multiplier,
             probe_count: 0,
+            probe_jitter: 0.5 + (self.initial_limit as f64 / self.max_limit as f64) * 0.5,
         }
     }
 }
