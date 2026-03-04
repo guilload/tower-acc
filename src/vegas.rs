@@ -33,8 +33,7 @@ impl Vegas {
     }
 
     fn should_probe(&self, limit: usize) -> bool {
-        let interval =
-            (self.probe_jitter * self.probe_multiplier as f64 * limit as f64) as usize;
+        let interval = (self.probe_jitter * self.probe_multiplier as f64 * limit as f64) as usize;
         interval > 0 && self.probe_count >= interval
     }
 
