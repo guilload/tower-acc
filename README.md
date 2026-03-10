@@ -38,23 +38,37 @@ All thresholds are configurable via `VegasBuilder`.
 
 ## Usage
 
+### As a Tower layer
+
+```rust
+use tower::ServiceBuilder;
+use tower_acc::{ConcurrencyLimitLayer, Vegas};
+
+let service = ServiceBuilder::new()
+    .layer(ConcurrencyLimitLayer::new(Vegas::default()))
+    .service(my_service);
+```
+
+### Wrapping a service directly
+
 ```rust
 use tower_acc::{ConcurrencyLimit, Vegas};
 
-// Wrap any Tower `Service` with an adaptive concurrency limit.
 let service = ConcurrencyLimit::new(my_service, Vegas::default());
 ```
 
 ### Custom configuration
 
 ```rust
-use tower_acc::Vegas;
+use tower_acc::{ConcurrencyLimitLayer, Vegas};
 
-let algorithm = Vegas::builder()
-    .initial_limit(20)
-    .max_limit(500)
-    .smoothing(0.5)
-    .build();
+let layer = ConcurrencyLimitLayer::new(
+    Vegas::builder()
+        .initial_limit(20)
+        .max_limit(500)
+        .smoothing(0.5)
+        .build(),
+);
 ```
 
 ### Pluggable algorithms
