@@ -175,7 +175,10 @@ pub fn run(config: &SimConfig) -> Vec<TracePoint> {
                 );
             }
 
-            Event::RequestComplete { arrival_time, processing_start } => {
+            Event::RequestComplete {
+                arrival_time,
+                processing_start,
+            } => {
                 // Server sees only processing time (like real tower-acc).
                 let server_rtt = std::time::Duration::from_nanos(now.0 - processing_start.0);
                 // Client sees full arrival-to-completion time.
@@ -186,8 +189,11 @@ pub fn run(config: &SimConfig) -> Vec<TracePoint> {
                 if let Some((_rid, queued_arrival)) = server.on_complete(server_rtt, false) {
                     // A queued request just started processing now.
                     let regime = &config.regimes[current_regime];
-                    let latency_ns =
-                        sample_lognormal_latency(&mut rng, regime.mean_latency_ms, regime.std_factor);
+                    let latency_ns = sample_lognormal_latency(
+                        &mut rng,
+                        regime.mean_latency_ms,
+                        regime.std_factor,
+                    );
                     let complete_time = SimTime(now.0 + latency_ns);
                     queue.schedule(
                         complete_time,
@@ -209,7 +215,13 @@ pub fn run(config: &SimConfig) -> Vec<TracePoint> {
 
             Event::TraceSample => {
                 let regime = &config.regimes[current_regime];
-                sampler.sample(now, &server, &client, regime.mean_latency_ms, config.request_rate);
+                sampler.sample(
+                    now,
+                    &server,
+                    &client,
+                    regime.mean_latency_ms,
+                    config.request_rate,
+                );
                 queue.schedule(SimTime(now.0 + 50_000_000), Event::TraceSample);
             }
         }

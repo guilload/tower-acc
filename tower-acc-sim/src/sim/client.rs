@@ -31,8 +31,7 @@ impl ClientModel {
         if self.inflight > 0 {
             self.inflight -= 1;
         }
-        self.algorithm
-            .update(rtt, self.inflight, is_error, false);
+        self.algorithm.update(rtt, self.inflight, is_error, false);
     }
 
     pub fn inflight(&self) -> usize {

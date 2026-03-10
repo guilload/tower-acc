@@ -54,7 +54,9 @@ impl Default for Gradient2 {
 
 impl Algorithm for Gradient2 {
     fn max_concurrency(&self) -> usize {
-        (self.estimated_limit as usize).clamp(self.min_limit, self.max_limit).max(1)
+        (self.estimated_limit as usize)
+            .clamp(self.min_limit, self.max_limit)
+            .max(1)
     }
 
     fn update(&mut self, rtt: Duration, num_inflight: usize, _is_error: bool, is_canceled: bool) {
@@ -95,16 +97,15 @@ impl Algorithm for Gradient2 {
 
         // Compute gradient: ratio of baseline to current RTT, with tolerance.
         // gradient = 1.0 means latencies are stable; < 1.0 means queueing detected.
-        let gradient =
-            (self.rtt_tolerance * self.long_rtt_ns / self.last_rtt_ns).clamp(0.5, 1.0);
+        let gradient = (self.rtt_tolerance * self.long_rtt_ns / self.last_rtt_ns).clamp(0.5, 1.0);
 
         let queue_size = (self.queue_size)(limit);
         let new_limit = gradient * self.estimated_limit + queue_size as f64;
 
         // Apply smoothing, then clamp to bounds.
-        self.estimated_limit =
-            ((1.0 - self.smoothing) * self.estimated_limit + self.smoothing * new_limit)
-                .clamp(self.min_limit as f64, self.max_limit as f64);
+        self.estimated_limit = ((1.0 - self.smoothing) * self.estimated_limit
+            + self.smoothing * new_limit)
+            .clamp(self.min_limit as f64, self.max_limit as f64);
     }
 }
 
@@ -305,10 +306,7 @@ mod tests {
 
     #[test]
     fn limit_stays_above_min() {
-        let mut g2 = Gradient2::builder()
-            .initial_limit(20)
-            .min_limit(10)
-            .build();
+        let mut g2 = Gradient2::builder().initial_limit(20).min_limit(10).build();
 
         // Warmup at low RTT.
         for _ in 0..10 {

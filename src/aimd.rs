@@ -229,10 +229,7 @@ mod tests {
 
     #[test]
     fn limit_does_not_drop_below_min() {
-        let mut aimd = Aimd::builder()
-            .initial_limit(5)
-            .min_limit(5)
-            .build();
+        let mut aimd = Aimd::builder().initial_limit(5).min_limit(5).build();
 
         for _ in 0..100 {
             aimd.update(Duration::from_millis(50), 10, true, false);
@@ -287,12 +284,20 @@ mod tests {
     #[test]
     #[should_panic(expected = "min_limit (50) must be <= max_limit (10)")]
     fn rejects_min_exceeds_max() {
-        Aimd::builder().min_limit(50).max_limit(10).initial_limit(50).build();
+        Aimd::builder()
+            .min_limit(50)
+            .max_limit(10)
+            .initial_limit(50)
+            .build();
     }
 
     #[test]
     #[should_panic(expected = "initial_limit (5) must be in")]
     fn rejects_initial_below_min() {
-        Aimd::builder().initial_limit(5).min_limit(10).max_limit(100).build();
+        Aimd::builder()
+            .initial_limit(5)
+            .min_limit(10)
+            .max_limit(100)
+            .build();
     }
 }
