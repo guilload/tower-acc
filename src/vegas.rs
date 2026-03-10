@@ -28,7 +28,7 @@ pub struct Vegas {
 }
 
 impl Vegas {
-    /// Returns a [`VegasBuilder`] for configuring a new `Vegas` instance.
+    /// Returns a `VegasBuilder` for configuring a new `Vegas` instance.
     pub fn builder() -> VegasBuilder {
         VegasBuilder::default()
     }

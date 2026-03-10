@@ -24,6 +24,14 @@ jobs:
       - run: rustup component add clippy
       - run: cargo clippy -- -D warnings
 
+  docs:
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo doc --no-deps --all-features
+
   deny:
     runs-on: ubuntu-latest
     steps:

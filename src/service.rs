@@ -20,7 +20,7 @@ use std::{
 /// the configured [`Algorithm`].
 ///
 /// Use [`ConcurrencyLimitLayer`](crate::ConcurrencyLimitLayer) to integrate
-/// with [`tower::ServiceBuilder`].
+/// with `tower::ServiceBuilder`.
 pub struct ConcurrencyLimit<S, A> {
     inner: S,
     controller: Arc<Mutex<Controller<A>>>,
