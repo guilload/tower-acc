@@ -24,6 +24,13 @@ jobs:
       - run: rustup component add clippy
       - run: cargo clippy -- -D warnings
 
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo install cargo-deny
+      - run: cargo deny check licenses
+
   msrv:
     runs-on: ubuntu-latest
     steps:
