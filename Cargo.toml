@@ -18,4 +18,10 @@ tower-layer = "0.3"
 tower-service = "0.3"
 
 [dev-dependencies]
-tower = "0.5"
+axum = "0.8"
+http = "1"
+http-body-util = "0.1"
+hyper = "1"
+hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
+tokio = { version = "1.49.0", features = ["full"] }
+tower = { version = "0.5", features = ["buffer", "load-shed"] }
