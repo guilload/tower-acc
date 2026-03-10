@@ -28,6 +28,7 @@ pub struct Vegas {
 }
 
 impl Vegas {
+    /// Returns a [`VegasBuilder`] for configuring a new `Vegas` instance.
     pub fn builder() -> VegasBuilder {
         VegasBuilder::default()
     }
@@ -134,6 +135,23 @@ impl Algorithm for Vegas {
     }
 }
 
+/// Builder for configuring a [`Vegas`] algorithm instance.
+///
+/// See [`Vegas::builder`] for usage.
+///
+/// # Defaults
+///
+/// | Parameter | Default |
+/// |-----------|---------|
+/// | `initial_limit` | 20 |
+/// | `max_limit` | 1000 |
+/// | `smoothing` | 1.0 (no smoothing) |
+/// | `alpha` | `3 × log10(limit)` |
+/// | `beta` | `6 × log10(limit)` |
+/// | `threshold` | `log10(limit)` |
+/// | `increase` | `limit + log10(limit)` |
+/// | `decrease` | `limit − log10(limit)` |
+/// | `probe_multiplier` | 30 |
 pub struct VegasBuilder {
     initial_limit: usize,
     max_limit: usize,
@@ -163,51 +181,68 @@ impl Default for VegasBuilder {
 }
 
 impl VegasBuilder {
+    /// Sets the starting concurrency limit (default: 20).
     pub fn initial_limit(mut self, limit: usize) -> Self {
         self.initial_limit = limit;
         self
     }
 
+    /// Sets the upper bound the limit can reach (default: 1000).
     pub fn max_limit(mut self, limit: usize) -> Self {
         self.max_limit = limit;
         self
     }
 
+    /// Sets the exponential smoothing factor applied to limit changes
+    /// (default: 1.0, i.e. no smoothing). Lower values dampen oscillations.
     pub fn smoothing(mut self, smoothing: f64) -> Self {
         self.smoothing = smoothing;
         self
     }
 
+    /// Sets the function that computes the alpha (queue-too-short) threshold
+    /// from the current limit (default: `3 × log10(limit)`).
     pub fn alpha(mut self, f: fn(usize) -> usize) -> Self {
         self.alpha_fn = f;
         self
     }
 
+    /// Sets the function that computes the beta (queue-too-long) threshold
+    /// from the current limit (default: `6 × log10(limit)`).
     pub fn beta(mut self, f: fn(usize) -> usize) -> Self {
         self.beta_fn = f;
         self
     }
 
+    /// Sets the function that computes the aggressive-increase threshold
+    /// from the current limit (default: `log10(limit)`).
     pub fn threshold(mut self, f: fn(usize) -> usize) -> Self {
         self.threshold_fn = f;
         self
     }
 
+    /// Sets the function used to increase the limit when the queue is short
+    /// (default: `limit + log10(limit)`).
     pub fn increase(mut self, f: fn(f64) -> f64) -> Self {
         self.increase_fn = f;
         self
     }
 
+    /// Sets the function used to decrease the limit when the queue is long or
+    /// an error occurs (default: `limit − log10(limit)`).
     pub fn decrease(mut self, f: fn(f64) -> f64) -> Self {
         self.decrease_fn = f;
         self
     }
 
+    /// Sets the probe multiplier that controls how often the baseline RTT is
+    /// reset (default: 30). The probe fires every `multiplier × limit` requests.
     pub fn probe_multiplier(mut self, multiplier: usize) -> Self {
         self.probe_multiplier = multiplier;
         self
     }
 
+    /// Builds the [`Vegas`] algorithm with the configured parameters.
     pub fn build(self) -> Vegas {
         Vegas {
             estimated_limit: self.initial_limit as f64,

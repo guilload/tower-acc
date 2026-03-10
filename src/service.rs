@@ -12,8 +12,15 @@ use std::{
     time::Instant,
 };
 
-/// Enforces a limit on the concurrent number of requests the underlying
-/// service can handle.
+/// Enforces an adaptive limit on the concurrent number of requests the
+/// underlying service can handle.
+///
+/// Unlike a static concurrency limit, `ConcurrencyLimit` continuously observes
+/// request latency and adjusts the number of allowed in-flight requests using
+/// the configured [`Algorithm`].
+///
+/// Use [`ConcurrencyLimitLayer`](crate::ConcurrencyLimitLayer) to integrate
+/// with [`tower::ServiceBuilder`].
 pub struct ConcurrencyLimit<S, A> {
     inner: S,
     controller: Arc<Mutex<Controller<A>>>,
