@@ -5,6 +5,7 @@
 [![CI](https://github.com/guilload/tower-acc/actions/workflows/ci.yml/badge.svg)](https://github.com/guilload/tower-acc/actions/workflows/ci.yml)
 [![License](https://img.shields.io/crates/l/tower-acc.svg)](LICENSE)
 [![MSRV](https://img.shields.io/crates/msrv/tower-acc.svg)](https://www.rust-lang.org)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 Adaptive concurrency control for [Tower] services.
 
