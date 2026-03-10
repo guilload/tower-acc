@@ -47,10 +47,7 @@ async fn handler(_req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Infal
 
 #[tokio::main]
 async fn main() {
-    let algorithm = Vegas::builder()
-        .initial_limit(5)
-        .max_limit(20)
-        .build();
+    let algorithm = Vegas::builder().initial_limit(5).max_limit(20).build();
 
     let svc = ServiceBuilder::new()
         // 1. Shed load: reject immediately when the buffer is full.
@@ -70,19 +67,18 @@ async fn main() {
         let svc = svc.clone();
 
         tokio::spawn(async move {
-            let hyper_svc =
-                hyper::service::service_fn(move |req: Request<Incoming>| {
-                    let mut svc = svc.clone();
-                    async move {
-                        match svc.ready().await {
-                            Ok(svc) => match svc.call(req).await {
-                                Ok(resp) => Ok::<_, Infallible>(resp),
-                                Err(err) => Ok(error_response(err)),
-                            },
+            let hyper_svc = hyper::service::service_fn(move |req: Request<Incoming>| {
+                let mut svc = svc.clone();
+                async move {
+                    match svc.ready().await {
+                        Ok(svc) => match svc.call(req).await {
+                            Ok(resp) => Ok::<_, Infallible>(resp),
                             Err(err) => Ok(error_response(err)),
-                        }
+                        },
+                        Err(err) => Ok(error_response(err)),
                     }
-                });
+                }
+            });
 
             let result = Builder::new(TokioExecutor::new())
                 .serve_connection(TokioIo::new(stream), hyper_svc)
@@ -105,7 +101,9 @@ fn error_response(err: tower::BoxError) -> Response<Full<Bytes>> {
     } else {
         Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(Full::new(Bytes::from(format!("internal server error: {err}"))))
+            .body(Full::new(Bytes::from(format!(
+                "internal server error: {err}"
+            ))))
             .unwrap()
     }
 }

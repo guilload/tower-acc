@@ -31,14 +31,11 @@ async fn handler() -> &'static str {
 
 #[tokio::main]
 async fn main() {
-    let algorithm = Vegas::builder()
-        .initial_limit(10)
-        .max_limit(100)
-        .build();
+    let algorithm = Vegas::builder().initial_limit(10).max_limit(100).build();
 
-    let app = Router::new().route("/", get(handler)).layer(
-        ServiceBuilder::new().layer(ConcurrencyLimitLayer::new(algorithm)),
-    );
+    let app = Router::new()
+        .route("/", get(handler))
+        .layer(ServiceBuilder::new().layer(ConcurrencyLimitLayer::new(algorithm)));
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Listening on http://localhost:3000");
