@@ -29,11 +29,58 @@ Setting the limit too low wastes capacity; setting it too high causes queuing,
 tail-latency spikes, and cascading failures under load. `tower-acc` removes the
 guesswork by adapting the limit at runtime.
 
-## How it works
+## Algorithms
 
-The default algorithm is **Vegas**, inspired by the TCP Vegas congestion control
-scheme. It works by tracking the minimum observed RTT (the "no-load" baseline)
-and comparing each request's RTT against it:
+Three built-in algorithms are provided. All are configurable through builder
+APIs and implement the [`Algorithm`] trait.
+
+### AIMD
+
+A loss-based algorithm (like TCP Reno). Increases the limit by 1 on each
+successful response and multiplies by a backoff ratio on errors or timeouts.
+Simple and predictable, but only reacts to failures — not to latency changes.
+
+```rust
+use tower_acc::{ConcurrencyLimitLayer, Aimd};
+
+let layer = ConcurrencyLimitLayer::new(
+    Aimd::builder()
+        .initial_limit(20)
+        .min_limit(10)
+        .max_limit(200)
+        .backoff_ratio(0.9)
+        .timeout(std::time::Duration::from_secs(5))
+        .build(),
+);
+```
+
+### Gradient2
+
+Gradient-based algorithm inspired by Netflix's [concurrency-limits] library.
+Compares long-term (exponentially smoothed) RTT against short-term RTT to detect
+queueing. A configurable tolerance ratio allows moderate latency increases
+without reducing the limit, making it more robust to natural variance than Vegas.
+
+```rust
+use tower_acc::{ConcurrencyLimitLayer, Gradient2};
+
+let layer = ConcurrencyLimitLayer::new(
+    Gradient2::builder()
+        .initial_limit(20)
+        .min_limit(20)
+        .max_limit(200)
+        .smoothing(0.2)
+        .rtt_tolerance(1.5)
+        .long_window(600)
+        .build(),
+);
+```
+
+### Vegas
+
+Inspired by the TCP Vegas congestion control scheme. Tracks the minimum observed
+RTT (the "no-load" baseline) and estimates queue depth from the ratio of current
+RTT to baseline:
 
 1. **Estimate queue depth** — `limit × (1 − rtt_noload / rtt)`.
 2. **If the queue is short** (below alpha) — increase the limit.
@@ -41,7 +88,17 @@ and comparing each request's RTT against it:
 4. **On errors** — decrease immediately.
 5. **Periodically probe** — reset the baseline to track changing conditions.
 
-All thresholds are configurable via `VegasBuilder`.
+```rust
+use tower_acc::{ConcurrencyLimitLayer, Vegas};
+
+let layer = ConcurrencyLimitLayer::new(
+    Vegas::builder()
+        .initial_limit(20)
+        .max_limit(500)
+        .smoothing(0.5)
+        .build(),
+);
+```
 
 ## Usage
 
@@ -64,21 +121,7 @@ use tower_acc::{ConcurrencyLimit, Vegas};
 let service = ConcurrencyLimit::new(my_service, Vegas::default());
 ```
 
-### Custom configuration
-
-```rust
-use tower_acc::{ConcurrencyLimitLayer, Vegas};
-
-let layer = ConcurrencyLimitLayer::new(
-    Vegas::builder()
-        .initial_limit(20)
-        .max_limit(500)
-        .smoothing(0.5)
-        .build(),
-);
-```
-
-### Pluggable algorithms
+### Custom algorithms
 
 Implement the `Algorithm` trait to bring your own strategy:
 
@@ -100,6 +143,14 @@ impl Algorithm for MyAlgorithm {
     }
 }
 ```
+
+[`Algorithm`]: https://docs.rs/tower-acc/latest/tower_acc/trait.Algorithm.html
+
+## Simulator
+
+The [`tower-acc-sim`](tower-acc-sim/) crate provides an interactive web-based
+simulator for exploring how the algorithms behave under changing server
+conditions. See the [simulator README](tower-acc-sim/README.md) for details.
 
 ## Inspiration
 

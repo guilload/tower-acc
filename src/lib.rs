@@ -21,10 +21,17 @@
 //! # }
 //! ```
 //!
-//! # Pluggable algorithms
+//! # Algorithms
 //!
-//! The built-in [`Vegas`] algorithm works well for most workloads. To implement
-//! a custom strategy, see the [`Algorithm`] trait.
+//! Three built-in algorithms are provided:
+//!
+//! - [`Aimd`] — loss-based (TCP Reno–style). Reacts to errors and timeouts.
+//! - [`Gradient2`] — gradient-based (Netflix-style). Compares long-term vs
+//!   short-term RTT with a configurable tolerance.
+//! - [`Vegas`] — queue-depth estimation (TCP Vegas–style). Tracks minimum RTT
+//!   as a no-load baseline.
+//!
+//! To implement a custom strategy, see the [`Algorithm`] trait.
 //!
 //! [Tower]: https://github.com/tower-rs/tower
 //! [concurrency-limits]: https://github.com/Netflix/concurrency-limits

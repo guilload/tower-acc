@@ -40,7 +40,7 @@ pub struct Gradient2 {
 }
 
 impl Gradient2 {
-    /// Returns a [`Gradient2Builder`] for configuring a new `Gradient2` instance.
+    /// Returns a `Gradient2Builder` for configuring a new `Gradient2` instance.
     pub fn builder() -> Gradient2Builder {
         Gradient2Builder::default()
     }
