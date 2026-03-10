@@ -29,6 +29,7 @@
 //! [Tower]: https://github.com/tower-rs/tower
 //! [concurrency-limits]: https://github.com/Netflix/concurrency-limits
 
+mod aimd;
 mod algorithm;
 mod controller;
 mod future;
@@ -37,6 +38,7 @@ mod layer;
 mod service;
 mod vegas;
 
+pub use self::aimd::Aimd;
 pub use self::algorithm::Algorithm;
 #[cfg(feature = "layer")]
 pub use self::layer::ConcurrencyLimitLayer;
