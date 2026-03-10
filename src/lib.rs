@@ -33,6 +33,7 @@ mod aimd;
 mod algorithm;
 mod controller;
 mod future;
+mod gradient2;
 #[cfg(feature = "layer")]
 mod layer;
 mod service;
@@ -40,6 +41,7 @@ mod vegas;
 
 pub use self::aimd::Aimd;
 pub use self::algorithm::Algorithm;
+pub use self::gradient2::Gradient2;
 #[cfg(feature = "layer")]
 pub use self::layer::ConcurrencyLimitLayer;
 pub use self::service::ConcurrencyLimit;
