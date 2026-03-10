@@ -2,6 +2,7 @@
 name = "tower-acc"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 authors = ["Adrien Guillo <adrien.guillo@gmail.com>"]
 description = "Adaptive concurrency control for Tower services"
 license = "Apache-2.0"
@@ -10,11 +11,15 @@ documentation = "https://docs.rs/tower-acc"
 keywords = ["tower", "concurrency", "rate-limit", "adaptive", "vegas"]
 categories = ["asynchronous", "network-programming"]
 
+[features]
+default = ["layer"]
+layer = ["tower-layer"]
+
 [dependencies]
 pin-project-lite = "0.2"
 tokio = { version = "1.49.0", features = ["sync"] }
 tokio-util = "0.7"
-tower-layer = "0.3"
+tower-layer = { version = "0.3", optional = true }
 tower-service = "0.3"
 
 [dev-dependencies]
