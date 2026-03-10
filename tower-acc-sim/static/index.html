@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tower-acc Simulator</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  :root { --bg: #0f1117; --surface: #1a1d27; --border: #2d3040; --text: #e1e4ed; --muted: #8b8fa3; --accent: #6c8cff; --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --purple: #a78bfa; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+
+  .config-sections { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 800px) { .config-sections { grid-template-columns: 1fr; } }
+
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .section-title { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .section-title span { font-size: 0.7rem; font-weight: 400; color: var(--muted); opacity: 0.7; }
+
+  .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field select { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; color: var(--text); font-size: 0.85rem; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+
+  .algo-params { margin-top: 10px; }
+
+  .bottom-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+
+  .regimes-section { margin-bottom: 12px; }
+  .regimes-section .section-title { margin-bottom: 8px; }
+  .regime-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .regime-row input { width: 90px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; color: var(--text); font-size: 0.8rem; }
+  .regime-row .regime-label { font-size: 0.7rem; color: var(--muted); width: 60px; text-align: right; }
+
+  .btn { padding: 6px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 500; transition: opacity 0.15s; }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; padding: 8px 24px; font-size: 0.85rem; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-small { padding: 3px 8px; font-size: 0.7rem; }
+
+  .actions-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .actions { display: flex; gap: 8px; align-items: center; }
+  .status { font-size: 0.8rem; color: var(--muted); margin-left: 12px; }
+  .playback { display: flex; gap: 8px; align-items: center; }
+  .playback label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+  .sim-fields { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+
+  .charts { display: flex; flex-direction: column; gap: 16px; }
+  .chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>tower-acc Simulator</h1>
+  <p class="subtitle">Visualize how AIMD, Gradient2, and Vegas algorithms respond to changing server conditions</p>
+
+  <!-- Server / Client side-by-side -->
+  <div class="config-sections">
+
+    <!-- SERVER -->
+    <div class="section">
+      <div class="section-title">Server <span>— admission control</span></div>
+      <div class="config-grid">
+        <div class="field">
+          <label>Algorithm</label>
+          <select id="server-algo" onchange="onAlgoChange('server')">
+            <option value="aimd">AIMD</option>
+            <option value="gradient2" selected>Gradient2</option>
+            <option value="vegas">Vegas</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Initial Limit</label>
+          <input type="number" id="server-initial-limit" value="20" min="1" max="10000">
+        </div>
+      </div>
+      <div class="algo-params" id="server-vegas-params" style="display:none">
+        <div class="config-grid">
+          <div class="field">
+            <label>Max Limit</label>
+            <input type="number" id="server-vegas-max" value="200" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Smoothing</label>
+            <input type="number" id="server-vegas-smoothing" value="1.0" min="0" max="1" step="0.1">
+          </div>
+        </div>
+      </div>
+      <div class="algo-params" id="server-aimd-params" style="display:none">
+        <div class="config-grid">
+          <div class="field">
+            <label>Min Limit</label>
+            <input type="number" id="server-aimd-min" value="10" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Max Limit</label>
+            <input type="number" id="server-aimd-max" value="200" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Backoff Ratio</label>
+            <input type="number" id="server-aimd-backoff" value="0.9" min="0.5" max="0.99" step="0.05">
+          </div>
+          <div class="field">
+            <label>Timeout (ms)</label>
+            <input type="number" id="server-aimd-timeout" value="1500" min="100" max="60000">
+          </div>
+        </div>
+      </div>
+      <div class="algo-params" id="server-gradient2-params">
+        <div class="config-grid">
+          <div class="field">
+            <label>Min Limit</label>
+            <input type="number" id="server-gradient2-min" value="20" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Max Limit</label>
+            <input type="number" id="server-gradient2-max" value="200" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Smoothing</label>
+            <input type="number" id="server-gradient2-smoothing" value="0.2" min="0" max="1" step="0.05">
+          </div>
+          <div class="field">
+            <label>RTT Tolerance</label>
+            <input type="number" id="server-gradient2-tolerance" value="1.5" min="1.0" max="5.0" step="0.1">
+          </div>
+          <div class="field">
+            <label>Long Window</label>
+            <input type="number" id="server-gradient2-window" value="600" min="1" max="10000">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENT -->
+    <div class="section">
+      <div class="section-title">Client <span>— throttling</span></div>
+      <div class="config-grid">
+        <div class="field">
+          <label>Algorithm</label>
+          <select id="client-algo" onchange="onAlgoChange('client')">
+            <option value="aimd" selected>AIMD</option>
+            <option value="gradient2">Gradient2</option>
+            <option value="vegas">Vegas</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Initial Limit</label>
+          <input type="number" id="client-initial-limit" value="20" min="1" max="10000">
+        </div>
+      </div>
+      <div class="algo-params" id="client-vegas-params" style="display:none">
+        <div class="config-grid">
+          <div class="field">
+            <label>Max Limit</label>
+            <input type="number" id="client-vegas-max" value="200" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Smoothing</label>
+            <input type="number" id="client-vegas-smoothing" value="1.0" min="0" max="1" step="0.1">
+          </div>
+        </div>
+      </div>
+      <div class="algo-params" id="client-aimd-params">
+        <div class="config-grid">
+          <div class="field">
+            <label>Min Limit</label>
+            <input type="number" id="client-aimd-min" value="10" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Max Limit</label>
+            <input type="number" id="client-aimd-max" value="200" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Backoff Ratio</label>
+            <input type="number" id="client-aimd-backoff" value="0.9" min="0.5" max="0.99" step="0.05">
+          </div>
+          <div class="field">
+            <label>Timeout (ms)</label>
+            <input type="number" id="client-aimd-timeout" value="1500" min="100" max="60000">
+          </div>
+        </div>
+      </div>
+      <div class="algo-params" id="client-gradient2-params" style="display:none">
+        <div class="config-grid">
+          <div class="field">
+            <label>Min Limit</label>
+            <input type="number" id="client-gradient2-min" value="20" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Max Limit</label>
+            <input type="number" id="client-gradient2-max" value="200" min="1" max="10000">
+          </div>
+          <div class="field">
+            <label>Smoothing</label>
+            <input type="number" id="client-gradient2-smoothing" value="0.2" min="0" max="1" step="0.05">
+          </div>
+          <div class="field">
+            <label>RTT Tolerance</label>
+            <input type="number" id="client-gradient2-tolerance" value="1.5" min="1.0" max="5.0" step="0.1">
+          </div>
+          <div class="field">
+            <label>Long Window</label>
+            <input type="number" id="client-gradient2-window" value="600" min="1" max="10000">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simulation settings + Queue + Regimes -->
+  <div class="bottom-bar">
+    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+      <div>
+        <div class="section-title">Simulation</div>
+        <div class="sim-fields">
+          <div class="field">
+            <label>Duration (s)</label>
+            <input type="number" id="duration" value="60" min="1" max="300" step="1" style="width:80px">
+          </div>
+          <div class="field">
+            <label>Request Rate (rps)</label>
+            <input type="number" id="rps" value="200" min="1" max="10000" step="10" style="width:90px">
+          </div>
+          <div class="field">
+            <label>Seed</label>
+            <input type="number" id="seed" value="42" min="0" style="width:70px">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Queue</div>
+        <div class="sim-fields">
+          <div class="field">
+            <label>Capacity</label>
+            <input type="number" id="queue-cap" value="100" min="0" max="10000" style="width:80px">
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1; min-width: 300px;">
+        <div class="regimes-section">
+          <div class="section-title">Latency Regimes</div>
+          <div id="regimes-list"></div>
+          <button class="btn btn-secondary btn-small" onclick="addRegime()">+ Add Regime</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <div class="actions">
+        <button class="btn btn-primary" id="run-btn" onclick="runSim()">Run Simulation</button>
+        <span class="status" id="status"></span>
+      </div>
+      <div class="playback">
+        <label>Speed</label>
+        <select id="speed" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 6px;color:var(--text);font-size:0.8rem;">
+          <option value="0">Instant</option>
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+          <option value="5">5x</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-container" id="chart-limits"></div>
+    <div class="chart-container" id="chart-server"></div>
+    <div class="chart-container" id="chart-client"></div>
+    <div class="chart-container" id="chart-latency"></div>
+    <div class="chart-container" id="chart-shedding"></div>
+  </div>
+</div>
+
+<script>
+const COLORS = { accent: '#6c8cff', green: '#4ade80', red: '#f87171', yellow: '#fbbf24', purple: '#a78bfa', muted: '#8b8fa3', cyan: '#22d3ee' };
+const LAYOUT_BASE = {
+  paper_bgcolor: '#1a1d27', plot_bgcolor: '#1a1d27',
+  font: { color: '#e1e4ed', size: 11 },
+  margin: { l: 50, r: 50, t: 35, b: 35 },
+  legend: { orientation: 'h', y: 1.12, x: 0 },
+  xaxis: { gridcolor: '#2d3040', title: 'Time (s)' },
+  hovermode: 'x unified',
+  yaxis: { gridcolor: '#2d3040' },
+  height: 250,
+};
+
+let traceData = null;
+let animFrame = null;
+
+// --- Regimes ---
+const defaultRegimes = [
+  { start_secs: 0, mean_latency_ms: 50, std_factor: 0.3 },
+  { start_secs: 10, mean_latency_ms: 150, std_factor: 0.4 },
+  { start_secs: 20, mean_latency_ms: 50, std_factor: 0.3 },
+  { start_secs: 30, mean_latency_ms: 500, std_factor: 0.8 },
+  { start_secs: 42, mean_latency_ms: 250, std_factor: 0.35 },
+  { start_secs: 52, mean_latency_ms: 50, std_factor: 0.3 },
+];
+
+function renderRegimes(regimes) {
+  const list = document.getElementById('regimes-list');
+  list.innerHTML = '';
+  regimes.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'regime-row';
+    row.innerHTML = `
+      <span class="regime-label">Start (s)</span>
+      <input type="number" class="regime-start" value="${r.start_secs}" min="0" step="1">
+      <span class="regime-label">Mean (ms)</span>
+      <input type="number" class="regime-mean" value="${r.mean_latency_ms}" min="1" step="10">
+      <span class="regime-label">Std</span>
+      <input type="number" class="regime-std" value="${r.std_factor}" min="0.01" max="2" step="0.1">
+      <button class="btn btn-secondary btn-small" onclick="this.parentElement.remove()">x</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function addRegime() {
+  const rows = document.querySelectorAll('.regime-row');
+  const lastStart = rows.length > 0 ? parseFloat(rows[rows.length-1].querySelector('.regime-start').value) : 0;
+  const row = document.createElement('div');
+  row.className = 'regime-row';
+  row.innerHTML = `
+    <span class="regime-label">Start (s)</span>
+    <input type="number" class="regime-start" value="${lastStart + 10}" min="0" step="1">
+    <span class="regime-label">Mean (ms)</span>
+    <input type="number" class="regime-mean" value="50" min="1" step="10">
+    <span class="regime-label">Std</span>
+    <input type="number" class="regime-std" value="0.3" min="0.01" max="2" step="0.1">
+    <button class="btn btn-secondary btn-small" onclick="this.parentElement.remove()">x</button>
+  `;
+  document.getElementById('regimes-list').appendChild(row);
+}
+
+function getRegimes() {
+  return Array.from(document.querySelectorAll('.regime-row')).map(row => ({
+    start_secs: parseFloat(row.querySelector('.regime-start').value),
+    mean_latency_ms: parseFloat(row.querySelector('.regime-mean').value),
+    std_factor: parseFloat(row.querySelector('.regime-std').value),
+  }));
+}
+
+// --- Algorithm toggle ---
+function onAlgoChange(side) {
+  const algo = document.getElementById(`${side}-algo`).value;
+  document.getElementById(`${side}-vegas-params`).style.display = algo === 'vegas' ? 'block' : 'none';
+  document.getElementById(`${side}-aimd-params`).style.display = algo === 'aimd' ? 'block' : 'none';
+  document.getElementById(`${side}-gradient2-params`).style.display = algo === 'gradient2' ? 'block' : 'none';
+}
+
+// --- Build config ---
+function buildAlgoConfig(side) {
+  const algo = document.getElementById(`${side}-algo`).value;
+  const initialLimit = parseInt(document.getElementById(`${side}-initial-limit`).value);
+  if (algo === 'vegas') {
+    return {
+      type: 'vegas',
+      initial_limit: initialLimit,
+      max_limit: parseInt(document.getElementById(`${side}-vegas-max`).value),
+      smoothing: parseFloat(document.getElementById(`${side}-vegas-smoothing`).value),
+    };
+  } else if (algo === 'gradient2') {
+    return {
+      type: 'gradient2',
+      initial_limit: initialLimit,
+      min_limit: parseInt(document.getElementById(`${side}-gradient2-min`).value),
+      max_limit: parseInt(document.getElementById(`${side}-gradient2-max`).value),
+      smoothing: parseFloat(document.getElementById(`${side}-gradient2-smoothing`).value),
+      rtt_tolerance: parseFloat(document.getElementById(`${side}-gradient2-tolerance`).value),
+      long_window: parseInt(document.getElementById(`${side}-gradient2-window`).value),
+    };
+  } else {
+    return {
+      type: 'aimd',
+      initial_limit: initialLimit,
+      min_limit: parseInt(document.getElementById(`${side}-aimd-min`).value),
+      max_limit: parseInt(document.getElementById(`${side}-aimd-max`).value),
+      backoff_ratio: parseFloat(document.getElementById(`${side}-aimd-backoff`).value),
+      timeout_ms: parseInt(document.getElementById(`${side}-aimd-timeout`).value),
+    };
+  }
+}
+
+function buildConfig() {
+  return {
+    duration_secs: parseFloat(document.getElementById('duration').value),
+    request_rate: parseFloat(document.getElementById('rps').value),
+    server_algorithm: buildAlgoConfig('server'),
+    client_algorithm: buildAlgoConfig('client'),
+    queue_capacity: parseInt(document.getElementById('queue-cap').value),
+    regimes: getRegimes(),
+    seed: parseInt(document.getElementById('seed').value),
+  };
+}
+
+// --- Simulation ---
+async function runSim() {
+  const btn = document.getElementById('run-btn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.textContent = 'Running simulation\u2026';
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+
+  try {
+    const resp = await fetch('/api/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildConfig()),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    traceData = await resp.json();
+    status.textContent = `${traceData.length} samples`;
+    animateCharts();
+  } catch (e) {
+    status.textContent = `Error: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// --- Charts ---
+function animateCharts() {
+  if (!traceData || traceData.length === 0) return;
+  const speed = parseFloat(document.getElementById('speed').value);
+  if (speed === 0) { renderCharts(traceData.length); return; }
+
+  const simDuration = traceData[traceData.length - 1].time_secs - traceData[0].time_secs;
+  const animDurationMs = (simDuration / speed) * 1000;
+  const startReal = performance.now();
+
+  function step(now) {
+    const elapsed = now - startReal;
+    const fraction = Math.min(elapsed / animDurationMs, 1);
+    const n = Math.max(1, Math.round(fraction * traceData.length));
+    renderCharts(n);
+    if (fraction < 1) animFrame = requestAnimationFrame(step);
+  }
+  animFrame = requestAnimationFrame(step);
+}
+
+function renderCharts(n) {
+  const d = traceData.slice(0, n);
+  const t = d.map(p => p.time_secs);
+
+  // 1. Concurrency Limits — server limit, client limit, theoretical (Little's Law)
+  Plotly.react('chart-limits', [
+    { x: t, y: d.map(p => p.server_limit), name: 'Server Limit (Vegas)', line: { color: COLORS.accent, width: 2 } },
+    { x: t, y: d.map(p => p.client_limit), name: 'Client Limit (AIMD)', line: { color: COLORS.cyan, width: 2 } },
+    { x: t, y: d.map(p => p.theoretical_concurrency), name: 'Theoretical (Little\'s Law)', line: { color: COLORS.muted, width: 1.5, dash: 'dash' } },
+  ], { ...LAYOUT_BASE, title: { text: 'Concurrency Limits', font: { size: 13 } }, yaxis: { ...LAYOUT_BASE.yaxis, title: 'Limit' } }, { responsive: true });
+
+  // 2. Server — limit vs inflight
+  Plotly.react('chart-server', [
+    { x: t, y: d.map(p => p.server_limit), name: 'Limit', line: { color: COLORS.accent, width: 2 } },
+    { x: t, y: d.map(p => p.server_inflight), name: 'Inflight', fill: 'tozeroy', line: { color: COLORS.purple, width: 1 }, fillcolor: COLORS.purple + '20' },
+  ], { ...LAYOUT_BASE, title: { text: 'Server: Limit vs Inflight', font: { size: 13 } }, yaxis: { ...LAYOUT_BASE.yaxis, title: 'Concurrency' } }, { responsive: true });
+
+  // 3. Client — limit vs inflight
+  Plotly.react('chart-client', [
+    { x: t, y: d.map(p => p.client_limit), name: 'Limit', line: { color: COLORS.cyan, width: 2 } },
+    { x: t, y: d.map(p => p.client_inflight), name: 'Inflight', fill: 'tozeroy', line: { color: COLORS.green, width: 1 }, fillcolor: COLORS.green + '20' },
+  ], { ...LAYOUT_BASE, title: { text: 'Client: Limit vs Inflight', font: { size: 13 } }, yaxis: { ...LAYOUT_BASE.yaxis, title: 'Concurrency' } }, { responsive: true });
+
+  // 4. Latency
+  Plotly.react('chart-latency', [
+    { x: t, y: d.map(p => p.observed_latency_ms), name: 'Observed Latency (EMA)', line: { color: COLORS.yellow, width: 2 } },
+    { x: t, y: d.map(p => p.processing_latency_ms), name: 'Server Processing Time (mean)', line: { color: COLORS.muted, width: 1.5, dash: 'dash' } },
+  ], { ...LAYOUT_BASE, title: { text: 'Latency', font: { size: 13 } }, yaxis: { ...LAYOUT_BASE.yaxis, title: 'ms' } }, { responsive: true });
+
+  // 5. Shedding & Queue
+  Plotly.react('chart-shedding', [
+    { x: t, y: d.map(p => p.cumulative_shed), name: 'Cumulative Shed', line: { color: COLORS.red, width: 2 }, yaxis: 'y' },
+    { x: t, y: d.map(p => p.server_queue_depth), name: 'Queue Depth', line: { color: COLORS.accent, width: 1.5 }, yaxis: 'y2' },
+    { x: t, y: d.map(p => p.queue_capacity), name: 'Queue Capacity', line: { color: COLORS.muted, width: 1, dash: 'dash' }, yaxis: 'y2' },
+  ], {
+    ...LAYOUT_BASE,
+    title: { text: 'Load Shedding & Queue', font: { size: 13 } },
+    yaxis: { ...LAYOUT_BASE.yaxis, title: 'Cumulative Shed', side: 'left', rangemode: 'tozero' },
+    yaxis2: { gridcolor: '#2d3040', title: 'Queue Depth', side: 'right', overlaying: 'y', rangemode: 'tozero' },
+  }, { responsive: true });
+}
+
+// --- Init ---
+renderRegimes(defaultRegimes);
+['chart-limits', 'chart-server', 'chart-client', 'chart-latency', 'chart-shedding'].forEach(id => {
+  Plotly.newPlot(id, [], { ...LAYOUT_BASE }, { responsive: true });
+});
+</script>
+</body>
+</html>

@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "tower-acc-sim"]
+
 [package]
 name = "tower-acc"
 version = "0.1.0"
