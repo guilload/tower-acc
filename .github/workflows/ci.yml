@@ -24,6 +24,15 @@ jobs:
       - run: rustup component add clippy
       - run: cargo clippy -- -D warnings
 
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read MSRV from Cargo.toml
+        run: echo "MSRV=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
+      - run: rustup toolchain install "$MSRV" --profile minimal
+      - run: cargo +"$MSRV" check --all-features
+
   test:
     runs-on: ubuntu-latest
     steps:
