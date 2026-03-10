@@ -1,5 +1,11 @@
 # tower-acc
 
+[![Crates.io](https://img.shields.io/crates/v/tower-acc.svg)](https://crates.io/crates/tower-acc)
+[![Documentation](https://docs.rs/tower-acc/badge.svg)](https://docs.rs/tower-acc)
+[![CI](https://github.com/guilload/tower-acc/actions/workflows/ci.yml/badge.svg)](https://github.com/guilload/tower-acc/actions/workflows/ci.yml)
+[![License](https://img.shields.io/crates/l/tower-acc.svg)](LICENSE)
+[![MSRV](https://img.shields.io/crates/msrv/tower-acc.svg)](https://www.rust-lang.org)
+
 Adaptive concurrency control for [Tower] services.
 
 `tower-acc` dynamically adjusts the number of in-flight requests a service is
