@@ -2,6 +2,13 @@
 name = "tower-acc"
 version = "0.1.0"
 edition = "2024"
+authors = ["Adrien Guillo <adrien.guillo@gmail.com>"]
+description = "Adaptive concurrency control for Tower services"
+license = "Apache-2.0"
+repository = "https://github.com/guilload/tower-acc"
+documentation = "https://docs.rs/tower-acc"
+keywords = ["tower", "concurrency", "rate-limit", "adaptive", "vegas"]
+categories = ["asynchronous", "network-programming"]
 
 [dependencies]
 pin-project-lite = "0.2"
