@@ -2,10 +2,11 @@ use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
-    sync::{Arc, Mutex},
     task::{Context, Poll},
     time::Instant,
 };
+
+use crate::sync::{Arc, Mutex};
 use tokio::sync::OwnedSemaphorePermit;
 
 use crate::Algorithm;
@@ -92,7 +93,7 @@ mod tests {
     use super::*;
     use crate::classifier::DefaultClassifier;
     use crate::controller::Controller;
-    use std::sync::Arc;
+    use crate::sync::Arc;
     use std::time::Duration;
     use tokio::sync::Semaphore;
 

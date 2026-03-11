@@ -14,11 +14,16 @@ documentation = "https://docs.rs/tower-acc"
 keywords = ["tower", "concurrency", "rate-limit", "adaptive", "vegas"]
 categories = ["asynchronous", "network-programming"]
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)'] }
+
 [features]
 default = ["layer"]
 layer = ["tower-layer"]
+loom = ["dep:loom"]
 
 [dependencies]
+loom = { version = "0.7", optional = true }
 pin-project-lite = "0.2"
 tokio = { version = "1.50.0", features = ["sync"] }
 tokio-util = "0.7"

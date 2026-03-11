@@ -45,6 +45,7 @@ mod gradient2;
 #[cfg(feature = "layer")]
 mod layer;
 mod service;
+mod sync;
 mod vegas;
 
 pub use self::aimd::Aimd;

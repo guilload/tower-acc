@@ -8,10 +8,11 @@ use tokio_util::sync::PollSemaphore;
 use tower_service::Service;
 
 use std::{
-    sync::{Arc, Mutex},
     task::{Context, Poll, ready},
     time::Instant,
 };
+
+use crate::sync::{Arc, Mutex};
 
 /// Enforces an adaptive limit on the concurrent number of requests the
 /// underlying service can handle.

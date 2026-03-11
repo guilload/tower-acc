@@ -2,7 +2,9 @@ use tokio::sync::Semaphore;
 
 use crate::Algorithm;
 
-use std::{cmp::Ordering, sync::Arc, time::Duration};
+use std::{cmp::Ordering, time::Duration};
+
+use crate::sync::Arc;
 
 /// Updates the algorithm after each request completes and resizes the semaphore to match the new concurrency limit.
 pub(crate) struct Controller<A> {
