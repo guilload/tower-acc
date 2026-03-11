@@ -53,7 +53,6 @@ impl Algorithm for Aimd {
         if is_canceled {
             return;
         }
-
         let limit = self.estimated_limit;
 
         let new_limit = if is_error || rtt > self.timeout {
@@ -65,7 +64,6 @@ impl Algorithm for Aimd {
         } else {
             return;
         };
-
         self.estimated_limit = new_limit.clamp(self.min_limit as f64, self.max_limit as f64);
     }
 }
