@@ -38,6 +38,7 @@
 
 mod aimd;
 mod algorithm;
+mod classifier;
 mod controller;
 mod future;
 mod gradient2;
@@ -48,6 +49,7 @@ mod vegas;
 
 pub use self::aimd::Aimd;
 pub use self::algorithm::Algorithm;
+pub use self::classifier::{Classifier, DefaultClassifier};
 pub use self::gradient2::Gradient2;
 #[cfg(feature = "layer")]
 pub use self::layer::ConcurrencyLimitLayer;

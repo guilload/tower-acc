@@ -9,6 +9,7 @@ use std::{
 use tokio::sync::OwnedSemaphorePermit;
 
 use crate::Algorithm;
+use crate::classifier::Classifier;
 use crate::controller::Controller;
 
 struct FutureGuard<A: Algorithm> {
@@ -34,22 +35,25 @@ impl<A: Algorithm> Drop for FutureGuard<A> {
 }
 
 pin_project! {
-    pub struct ResponseFuture<F, A: Algorithm> {
+    pub struct ResponseFuture<F, A: Algorithm, C> {
         #[pin]
         future: F,
+        classifier: C,
         guard: FutureGuard<A>,
     }
 }
 
-impl<F, A: Algorithm> ResponseFuture<F, A> {
+impl<F, A: Algorithm, C> ResponseFuture<F, A, C> {
     pub(super) fn new(
         future: F,
         controller: Arc<Mutex<Controller<A>>>,
         permit: OwnedSemaphorePermit,
         start: Instant,
+        classifier: C,
     ) -> Self {
         Self {
             future,
+            classifier,
             guard: FutureGuard {
                 controller,
                 is_canceled: true,
@@ -61,10 +65,11 @@ impl<F, A: Algorithm> ResponseFuture<F, A> {
     }
 }
 
-impl<F, T, E, A> Future for ResponseFuture<F, A>
+impl<F, T, E, A, C> Future for ResponseFuture<F, A, C>
 where
     F: Future<Output = Result<T, E>>,
     A: Algorithm,
+    C: Classifier<T, E>,
 {
     type Output = Result<T, E>;
 
@@ -74,7 +79,7 @@ where
         match this.future.poll(cx) {
             Poll::Ready(result) => {
                 this.guard.is_canceled = false;
-                this.guard.is_error = result.is_err();
+                this.guard.is_error = this.classifier.is_server_error(&result);
                 Poll::Ready(result)
             }
             Poll::Pending => Poll::Pending,
@@ -85,6 +90,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::classifier::DefaultClassifier;
     use crate::controller::Controller;
     use std::sync::Arc;
     use std::time::Duration;
@@ -148,6 +154,7 @@ mod tests {
             controller,
             permit,
             Instant::now(),
+            DefaultClassifier,
         );
 
         let result = fut.await;
@@ -168,6 +175,7 @@ mod tests {
             controller,
             permit,
             Instant::now(),
+            DefaultClassifier,
         );
 
         let result = fut.await;
@@ -189,6 +197,7 @@ mod tests {
             controller,
             permit,
             Instant::now(),
+            DefaultClassifier,
         );
 
         // Drop without polling to completion — should report canceled.
@@ -212,6 +221,7 @@ mod tests {
             controller,
             permit,
             Instant::now(),
+            DefaultClassifier,
         );
 
         fut.await.unwrap();
@@ -253,6 +263,7 @@ mod tests {
             controller,
             permit,
             Instant::now(),
+            DefaultClassifier,
         );
 
         let result = fut.await;
@@ -261,5 +272,90 @@ mod tests {
         let log = updates.lock().unwrap();
         assert_eq!(log.len(), 1);
         assert_eq!(log[0], (false, false));
+    }
+
+    #[tokio::test]
+    async fn custom_classifier_overrides_error_detection() {
+        let (controller, semaphore, updates) = make_fixture(10);
+        let permit = semaphore.acquire_owned().await.unwrap();
+
+        // Classifier that treats Err("not_found") as NOT a server error.
+        let classifier = |result: &Result<(), &str>| match result {
+            Err(e) => *e != "not_found",
+            Ok(_) => false,
+        };
+
+        let fut = ResponseFuture::new(
+            async { Err::<(), _>("not_found") },
+            controller,
+            permit,
+            Instant::now(),
+            classifier,
+        );
+
+        let result = fut.await;
+        assert!(result.is_err());
+
+        let log = updates.lock().unwrap();
+        assert_eq!(log.len(), 1);
+        assert_eq!(log[0], (false, false)); // NOT a server error
+    }
+
+    #[tokio::test]
+    async fn classifier_can_inspect_ok_variant() {
+        let (controller, semaphore, updates) = make_fixture(10);
+        let permit = semaphore.acquire_owned().await.unwrap();
+
+        // Classifier that treats Ok(503) as a server error.
+        let classifier = |result: &Result<u16, &str>| match result {
+            Ok(status) => *status >= 500,
+            Err(_) => true,
+        };
+
+        let fut = ResponseFuture::new(
+            async { Ok::<u16, &str>(503) },
+            controller,
+            permit,
+            Instant::now(),
+            classifier,
+        );
+
+        let result = fut.await;
+        assert_eq!(result.unwrap(), 503);
+
+        let log = updates.lock().unwrap();
+        assert_eq!(log.len(), 1);
+        assert_eq!(log[0], (true, false)); // IS a server error
+    }
+
+    #[tokio::test]
+    async fn struct_classifier() {
+        struct HttpClassifier;
+
+        impl Classifier<u16, &'static str> for HttpClassifier {
+            fn is_server_error(&self, result: &Result<u16, &'static str>) -> bool {
+                match result {
+                    Ok(status) => *status >= 500,
+                    Err(_) => true,
+                }
+            }
+        }
+
+        let (controller, semaphore, updates) = make_fixture(10);
+        let permit = semaphore.acquire_owned().await.unwrap();
+
+        let fut = ResponseFuture::new(
+            async { Ok::<u16, &str>(200) },
+            controller,
+            permit,
+            Instant::now(),
+            HttpClassifier,
+        );
+
+        let result = fut.await;
+        assert_eq!(result.unwrap(), 200);
+
+        let log = updates.lock().unwrap();
+        assert_eq!(log[0], (false, false)); // 200 is not a server error
     }
 }

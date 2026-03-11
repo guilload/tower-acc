@@ -1,4 +1,5 @@
 use crate::Algorithm;
+use crate::classifier::{Classifier, DefaultClassifier};
 use crate::controller::Controller;
 use crate::future::ResponseFuture;
 
@@ -21,8 +22,9 @@ use std::{
 ///
 /// Use [`ConcurrencyLimitLayer`](crate::ConcurrencyLimitLayer) to integrate
 /// with `tower::ServiceBuilder`.
-pub struct ConcurrencyLimit<S, A> {
+pub struct ConcurrencyLimit<S, A, C = DefaultClassifier> {
     inner: S,
+    classifier: C,
     controller: Arc<Mutex<Controller<A>>>,
     semaphore: PollSemaphore,
     /// The currently acquired semaphore permit, if there is sufficient
@@ -39,11 +41,22 @@ where
 {
     /// Creates a new concurrency limiter.
     pub fn new(inner: S, algorithm: A) -> Self {
+        Self::with_classifier(inner, algorithm, DefaultClassifier)
+    }
+}
+
+impl<S, A, C> ConcurrencyLimit<S, A, C>
+where
+    A: Algorithm,
+{
+    /// Creates a new concurrency limiter with a custom [`Classifier`].
+    pub fn with_classifier(inner: S, algorithm: A, classifier: C) -> Self {
         let controller = Controller::new(algorithm);
         let semaphore = controller.semaphore();
 
         Self {
             inner,
+            classifier,
             controller: Arc::new(Mutex::new(controller)),
             semaphore: PollSemaphore::new(semaphore),
             permit: None,
@@ -66,14 +79,15 @@ where
     }
 }
 
-impl<S, A, Request> Service<Request> for ConcurrencyLimit<S, A>
+impl<S, A, C, Request> Service<Request> for ConcurrencyLimit<S, A, C>
 where
     S: Service<Request>,
     A: Algorithm,
+    C: Classifier<S::Response, S::Error> + Clone,
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = ResponseFuture<S::Future, A>;
+    type Future = ResponseFuture<S::Future, A, C>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         if self.permit.is_none() {
@@ -95,17 +109,24 @@ where
 
         // Call the inner service
         let future = self.inner.call(request);
-        ResponseFuture::new(future, self.controller.clone(), permit, start)
+        ResponseFuture::new(
+            future,
+            self.controller.clone(),
+            permit,
+            start,
+            self.classifier.clone(),
+        )
     }
 }
 
-impl<S: Clone, A> Clone for ConcurrencyLimit<S, A> {
+impl<S: Clone, A, C: Clone> Clone for ConcurrencyLimit<S, A, C> {
     fn clone(&self) -> Self {
         // Since we hold an `OwnedSemaphorePermit`, we can't derive `Clone`.
         // Instead, when cloning the service, create a new service with the
         // same semaphore, but with the permit in the un-acquired state.
         Self {
             inner: self.inner.clone(),
+            classifier: self.classifier.clone(),
             controller: self.controller.clone(),
             semaphore: self.semaphore.clone(),
             permit: None,
@@ -113,7 +134,7 @@ impl<S: Clone, A> Clone for ConcurrencyLimit<S, A> {
     }
 }
 
-impl<S: std::fmt::Debug, A> std::fmt::Debug for ConcurrencyLimit<S, A> {
+impl<S: std::fmt::Debug, A, C> std::fmt::Debug for ConcurrencyLimit<S, A, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ConcurrencyLimit")
             .field("inner", &self.inner)

@@ -1,6 +1,7 @@
 use tower_layer::Layer;
 
 use crate::Algorithm;
+use crate::classifier::DefaultClassifier;
 use crate::service::ConcurrencyLimit;
 
 /// A [`Layer`] that wraps services with an adaptive [`ConcurrencyLimit`].
@@ -20,25 +21,41 @@ use crate::service::ConcurrencyLimit;
 /// # }
 /// ```
 #[derive(Debug, Clone)]
-pub struct ConcurrencyLimitLayer<A> {
+pub struct ConcurrencyLimitLayer<A, C = DefaultClassifier> {
     algorithm: A,
+    classifier: C,
 }
 
 impl<A> ConcurrencyLimitLayer<A> {
     /// Creates a new `ConcurrencyLimitLayer` with the given algorithm.
     pub fn new(algorithm: A) -> Self {
-        Self { algorithm }
+        Self {
+            algorithm,
+            classifier: DefaultClassifier,
+        }
     }
 }
 
-impl<S, A> Layer<S> for ConcurrencyLimitLayer<A>
+impl<A, C> ConcurrencyLimitLayer<A, C> {
+    /// Creates a new `ConcurrencyLimitLayer` with the given algorithm and
+    /// [`Classifier`](crate::Classifier).
+    pub fn with_classifier(algorithm: A, classifier: C) -> Self {
+        Self {
+            algorithm,
+            classifier,
+        }
+    }
+}
+
+impl<S, A, C> Layer<S> for ConcurrencyLimitLayer<A, C>
 where
     A: Algorithm + Clone,
+    C: Clone,
 {
-    type Service = ConcurrencyLimit<S, A>;
+    type Service = ConcurrencyLimit<S, A, C>;
 
     fn layer(&self, service: S) -> Self::Service {
-        ConcurrencyLimit::new(service, self.algorithm.clone())
+        ConcurrencyLimit::with_classifier(service, self.algorithm.clone(), self.classifier.clone())
     }
 }
 
@@ -122,5 +139,18 @@ mod tests {
         let layer = ConcurrencyLimitLayer::new(FixedAlgorithm(5));
         let debug = format!("{:?}", layer);
         assert!(debug.contains("ConcurrencyLimitLayer"));
+    }
+
+    #[tokio::test]
+    async fn layer_with_custom_classifier() {
+        // Classifier that treats all results as non-errors.
+        let classifier = |_result: &Result<&str, Infallible>| false;
+
+        let layer = ConcurrencyLimitLayer::with_classifier(FixedAlgorithm(10), classifier);
+        let mut svc = layer.layer(EchoService);
+
+        std::future::poll_fn(|cx| svc.poll_ready(cx)).await.unwrap();
+        let resp = svc.call("hello").await.unwrap();
+        assert_eq!(resp, "hello");
     }
 }
