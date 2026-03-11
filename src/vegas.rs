@@ -63,7 +63,7 @@ impl Default for Vegas {
 
 impl Algorithm for Vegas {
     fn max_concurrency(&self) -> usize {
-        std::cmp::max(1, self.estimated_limit as usize)
+        (self.estimated_limit as usize).min(self.max_limit).max(1)
     }
 
     fn update(&mut self, rtt: Duration, num_inflight: usize, is_error: bool, is_canceled: bool) {
@@ -96,6 +96,15 @@ impl Algorithm for Vegas {
             }
         };
 
+        // Errors always trigger a decrease, regardless of load level.
+        if is_error {
+            let new_limit = (self.decrease_fn)(self.estimated_limit);
+            let new_limit = new_limit.clamp(1.0, self.max_limit as f64);
+            self.estimated_limit =
+                (1.0 - self.smoothing) * self.estimated_limit + self.smoothing * new_limit;
+            return;
+        }
+
         // Don't adjust the limit when the system is lightly loaded — low RTT
         // is a misleading signal when few requests are in-flight.
         if num_inflight * 2 < limit {
@@ -112,10 +121,7 @@ impl Algorithm for Vegas {
         let beta = (self.beta_fn)(limit);
         let threshold = (self.threshold_fn)(limit);
 
-        let new_limit = if is_error {
-            // Errors (timeouts / overload) immediately decrease.
-            (self.decrease_fn)(self.estimated_limit)
-        } else if queue_size <= threshold {
+        let new_limit = if queue_size <= threshold {
             // Very short queue — aggressive increase.
             self.estimated_limit + beta as f64
         } else if queue_size < alpha {
@@ -243,7 +249,13 @@ impl VegasBuilder {
     }
 
     /// Builds the [`Vegas`] algorithm with the configured parameters.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `initial_limit` or `max_limit` is zero.
     pub fn build(self) -> Vegas {
+        assert!(self.initial_limit > 0, "initial_limit must be > 0");
+        assert!(self.max_limit > 0, "max_limit must be > 0");
         Vegas {
             estimated_limit: self.initial_limit as f64,
             max_limit: self.max_limit,
@@ -338,5 +350,28 @@ mod tests {
             vegas.update(Duration::from_millis(10), 1, true, false);
         }
         assert_eq!(vegas.max_concurrency(), 1);
+    }
+
+    #[test]
+    fn error_decreases_even_when_lightly_loaded() {
+        let mut vegas = Vegas::builder().initial_limit(100).build();
+        vegas.rtt_noload = Some(Duration::from_millis(10));
+
+        // Lightly loaded (inflight * 2 < limit), but error should still decrease.
+        vegas.update(Duration::from_millis(10), 1, true, false);
+        assert!(vegas.max_concurrency() < 100);
+    }
+
+    #[test]
+    fn limit_respects_max() {
+        let mut vegas = Vegas::builder().initial_limit(10).max_limit(15).build();
+        vegas.rtt_noload = Some(Duration::from_millis(10));
+
+        // Many low-queue updates to drive limit up.
+        for _ in 0..200 {
+            let limit = vegas.max_concurrency();
+            vegas.update(Duration::from_millis(11), limit, false, false);
+            assert!(vegas.max_concurrency() <= 15);
+        }
     }
 }
