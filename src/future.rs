@@ -97,15 +97,17 @@ mod tests {
     use std::time::Duration;
     use tokio::sync::Semaphore;
 
+    type UpdateLog = Arc<Mutex<Vec<(bool, bool)>>>;
+
     /// Algorithm that records every `update` call.
     struct RecordingAlgorithm {
         limit: usize,
-        updates: Arc<Mutex<Vec<(bool, bool)>>>, // (is_error, is_canceled)
+        updates: UpdateLog, // (is_error, is_canceled)
     }
 
     impl RecordingAlgorithm {
-        fn new(limit: usize) -> (Self, Arc<Mutex<Vec<(bool, bool)>>>) {
-            let updates = Arc::new(Mutex::new(Vec::new()));
+        fn new(limit: usize) -> (Self, UpdateLog) {
+            let updates: UpdateLog = Arc::new(Mutex::new(Vec::new()));
             (
                 Self {
                     limit,
@@ -137,7 +139,7 @@ mod tests {
     ) -> (
         Arc<Mutex<Controller<RecordingAlgorithm>>>,
         Arc<Semaphore>,
-        Arc<Mutex<Vec<(bool, bool)>>>,
+        UpdateLog,
     ) {
         let (algo, updates) = RecordingAlgorithm::new(limit);
         let controller = Controller::new(algo);
