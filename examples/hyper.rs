@@ -69,7 +69,9 @@ async fn main() {
         // 2. Buffer: queue up to BUFFER_SIZE requests.
         .buffer(BUFFER_SIZE)
         // 3. Adaptive concurrency limit with Gradient2 + classifier.
-        .layer(ConcurrencyLimitLayer::with_classifier(algorithm, classifier))
+        .layer(ConcurrencyLimitLayer::with_classifier(
+            algorithm, classifier,
+        ))
         .service_fn(handler);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();

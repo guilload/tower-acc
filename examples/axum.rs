@@ -62,8 +62,10 @@ async fn main() {
         .route("/", get(handler))
         .route("/not-found", get(not_found))
         .layer(
-            ServiceBuilder::new()
-                .layer(ConcurrencyLimitLayer::with_classifier(algorithm, HttpStatusClassifier)),
+            ServiceBuilder::new().layer(ConcurrencyLimitLayer::with_classifier(
+                algorithm,
+                HttpStatusClassifier,
+            )),
         );
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();

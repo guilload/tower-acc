@@ -86,15 +86,33 @@ async fn main() {
         // 2. Buffer: queue up to BUFFER_SIZE requests.
         .buffer(BUFFER_SIZE)
         // 3. Adaptive concurrency limit with AIMD + classifier.
-        .layer(ConcurrencyLimitLayer::with_classifier(algorithm, classifier))
+        .layer(ConcurrencyLimitLayer::with_classifier(
+            algorithm, classifier,
+        ))
         .service(Echo);
 
     // Fire a mix of requests: normal, not_found (client error), and fail (server error).
     let requests = vec![
-        "request 0", "request 1", "not_found 2", "request 3", "fail 4",
-        "request 5", "request 6", "not_found 7", "request 8", "request 9",
-        "fail 10", "request 11", "request 12", "request 13", "not_found 14",
-        "request 15", "request 16", "request 17", "request 18", "request 19",
+        "request 0",
+        "request 1",
+        "not_found 2",
+        "request 3",
+        "fail 4",
+        "request 5",
+        "request 6",
+        "not_found 7",
+        "request 8",
+        "request 9",
+        "fail 10",
+        "request 11",
+        "request 12",
+        "request 13",
+        "not_found 14",
+        "request 15",
+        "request 16",
+        "request 17",
+        "request 18",
+        "request 19",
     ];
 
     let mut handles = Vec::new();
