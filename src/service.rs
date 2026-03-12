@@ -34,6 +34,8 @@ pub struct ConcurrencyLimit<S, A, C = DefaultClassifier> {
     /// The permit is acquired in `poll_ready`, and taken in `call` when sending
     /// a new request.
     permit: Option<OwnedSemaphorePermit>,
+    #[cfg(feature = "tracing")]
+    acquire_permit_span: Option<tracing::Span>,
 }
 
 impl<S, A> ConcurrencyLimit<S, A>
@@ -61,6 +63,8 @@ where
             controller: Arc::new(Mutex::new(controller)),
             semaphore: PollSemaphore::new(semaphore),
             permit: None,
+            #[cfg(feature = "tracing")]
+            acquire_permit_span: None,
         }
     }
 
@@ -92,8 +96,20 @@ where
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         if self.permit.is_none() {
+            #[cfg(feature = "tracing")]
+            let _acquire_permit_guard = self
+                .acquire_permit_span
+                .get_or_insert_with(|| tracing::info_span!("acc.acquire_permit"))
+                .clone()
+                .entered();
+
             self.permit = ready!(self.semaphore.poll_acquire(cx));
             debug_assert!(self.permit.is_some(), "semaphore should never be closed");
+
+            #[cfg(feature = "tracing")]
+            {
+                self.acquire_permit_span = None;
+            }
         }
         // Once we've acquired a permit (or if we already had one), poll the
         // inner service.
@@ -131,6 +147,8 @@ impl<S: Clone, A, C: Clone> Clone for ConcurrencyLimit<S, A, C> {
             controller: self.controller.clone(),
             semaphore: self.semaphore.clone(),
             permit: None,
+            #[cfg(feature = "tracing")]
+            acquire_permit_span: None,
         }
     }
 }

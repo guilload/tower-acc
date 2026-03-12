@@ -28,6 +28,9 @@ impl<A: Algorithm> Drop for FutureGuard<A> {
         // to consume.
         drop(self.permit.take());
 
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!("acc.update").entered();
+
         self.controller
             .lock()
             .expect("Controller::update should not panic")

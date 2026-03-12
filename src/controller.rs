@@ -43,14 +43,32 @@ impl<A: Algorithm> Controller<A> {
 
         match new_max_permits.cmp(&self.max_permits) {
             Ordering::Greater => {
+                #[cfg(feature = "tracing")]
+                let previous_concurrency_limit = self.max_permits;
+
                 self.semaphore
                     .add_permits(new_max_permits - self.max_permits);
                 self.max_permits = new_max_permits;
+
+                #[cfg(feature = "tracing")]
+                tracing::info!(
+                    gauge.concurrency_limit = self.max_permits,
+                    previous_concurrency_limit
+                );
             }
             Ordering::Less => {
+                #[cfg(feature = "tracing")]
+                let previous_concurrency_limit = self.max_permits;
+
                 let excess_permits = self.max_permits - new_max_permits;
                 let forgotten_permits = self.semaphore.forget_permits(excess_permits);
                 self.max_permits -= forgotten_permits;
+
+                #[cfg(feature = "tracing")]
+                tracing::info!(
+                    gauge.concurrency_limit = self.max_permits,
+                    previous_concurrency_limit
+                );
             }
             Ordering::Equal => {}
         }

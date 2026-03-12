@@ -22,6 +22,7 @@ default = ["layer"]
 http = ["dep:http"]
 layer = ["tower-layer"]
 loom = ["dep:loom"]
+tracing = ["dep:tracing"]
 
 [dependencies]
 http = { version = "1", optional = true }
@@ -30,6 +31,7 @@ pin-project-lite = "0.2"
 tokio = { version = "1.50.0", features = ["sync"] }
 tokio-util = "0.7"
 tower-layer = { version = "0.3", optional = true }
+tracing = { version = "0.1", optional = true }
 tower-service = "0.3"
 
 [dev-dependencies]
