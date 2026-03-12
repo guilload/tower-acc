@@ -15,14 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: rustup component add rustfmt
-      - run: cargo fmt --check
+      - run: cargo fmt --all --check
 
   clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - run: rustup component add clippy
-      - run: cargo clippy -- -D warnings
+      - run: cargo clippy --workspace --all-targets -- -D warnings
 
   docs:
     runs-on: ubuntu-latest
