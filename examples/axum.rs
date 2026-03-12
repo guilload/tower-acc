@@ -1,12 +1,13 @@
-//! An Axum server with adaptive concurrency limiting using Gradient2 and a
-//! custom HTTP status classifier.
+//! An Axum server with adaptive concurrency limiting using Gradient2 and
+//! `HttpStatusClassifier`.
 //!
 //! Demonstrates server-side Gradient2 (latency-gradient–based) concurrency
-//! control with a classifier that distinguishes client errors (4xx) from server
-//! errors (5xx). Only 5xx responses count as errors for limit adjustment.
+//! control with the built-in `HttpStatusClassifier` that distinguishes client
+//! errors (4xx) from server errors (5xx). Only 5xx responses count as errors
+//! for limit adjustment.
 //!
 //! ```sh
-//! cargo run --example axum
+//! cargo run --example axum --features http
 //! ```
 //!
 //! Then hit it with:
@@ -23,21 +24,7 @@ use axum::response::IntoResponse;
 use axum::{Router, routing::get};
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
-use tower_acc::{Classifier, ConcurrencyLimitLayer, Gradient2};
-
-/// Treats only 5xx responses as server errors for concurrency control.
-/// 4xx errors (client mistakes) should not reduce the concurrency limit.
-#[derive(Clone)]
-struct HttpStatusClassifier;
-
-impl<E> Classifier<axum::response::Response, E> for HttpStatusClassifier {
-    fn is_server_error(&self, result: &Result<axum::response::Response, E>) -> bool {
-        match result {
-            Ok(response) => response.status().is_server_error(),
-            Err(_) => true,
-        }
-    }
-}
+use tower_acc::{ConcurrencyLimitLayer, Gradient2, HttpStatusClassifier};
 
 async fn handler() -> &'static str {
     // Simulate some work.
@@ -70,6 +57,8 @@ async fn main() {
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Listening on http://localhost:3000");
-    println!("Algorithm: Gradient2 (latency-gradient), classifier: 5xx only");
+    println!(
+        "Algorithm: Gradient2 (latency-gradient), classifier: HttpStatusClassifier (5xx only)"
+    );
     axum::serve(listener, app).await.unwrap();
 }

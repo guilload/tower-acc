@@ -50,6 +50,8 @@ mod vegas;
 
 pub use self::aimd::Aimd;
 pub use self::algorithm::Algorithm;
+#[cfg(feature = "http")]
+pub use self::classifier::HttpStatusClassifier;
 pub use self::classifier::{Classifier, DefaultClassifier};
 pub use self::gradient2::Gradient2;
 #[cfg(feature = "layer")]
