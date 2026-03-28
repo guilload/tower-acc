@@ -28,7 +28,8 @@ impl<A: Algorithm> Drop for FutureGuard<A> {
         // to consume.
         drop(self.permit.take());
 
-        let _update_controller_guard = tracing::info_span!("acc.update_controller").entered();
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!("acc.update_controller").entered();
 
         self.controller
             .lock()

@@ -7,6 +7,7 @@ use crate::Algorithm;
 ///
 /// A loss-based algorithm that increases the limit by a fixed amount on
 /// success and multiplies it by a backoff ratio on error or timeout.
+/// Cancelled requests are ignored unless they exceeded the timeout.
 /// This is the same approach used in TCP Reno congestion control.
 ///
 /// Unlike [`Vegas`](crate::Vegas), AIMD does not track baseline RTT or
@@ -50,12 +51,14 @@ impl Algorithm for Aimd {
     }
 
     fn update(&mut self, rtt: Duration, num_inflight: usize, is_error: bool, is_canceled: bool) {
-        if is_canceled {
+        let is_timeout = rtt > self.timeout;
+
+        if is_canceled && !is_timeout {
             return;
         }
         let current_limit = self.estimated_limit;
 
-        let new_limit = if is_error || rtt > self.timeout {
+        let new_limit = if is_error || is_timeout {
             // Multiplicative decrease.
             current_limit * self.backoff_ratio
         } else if num_inflight * 2 >= current_limit as usize {
@@ -221,8 +224,20 @@ mod tests {
     fn canceled_requests_are_ignored() {
         let mut aimd = Aimd::builder().initial_limit(10).min_limit(1).build();
 
-        aimd.update(Duration::from_millis(50), 10, true, true);
+        aimd.update(Duration::from_millis(50), 10, false, true);
         assert_eq!(aimd.max_concurrency(), 10);
+    }
+
+    #[test]
+    fn canceled_requests_decrease_limit_on_timeout() {
+        let mut aimd = Aimd::builder()
+            .initial_limit(10)
+            .min_limit(1)
+            .timeout(Duration::from_secs(1))
+            .build();
+
+        aimd.update(Duration::from_secs(2), 10, false, true);
+        assert_eq!(aimd.max_concurrency(), 9); // 10 * 0.9 = 9
     }
 
     #[test]
