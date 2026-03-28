@@ -25,8 +25,8 @@ use crate::Algorithm;
 #[derive(Debug, Clone)]
 pub struct Aimd {
     estimated_limit: f64,
-    min_limit: usize,
-    max_limit: usize,
+    min_limit: f64,
+    max_limit: f64,
     backoff_ratio: f64,
     timeout: Duration,
 }
@@ -46,25 +46,25 @@ impl Default for Aimd {
 
 impl Algorithm for Aimd {
     fn max_concurrency(&self) -> usize {
-        (self.estimated_limit as usize).clamp(self.min_limit, self.max_limit)
+        self.estimated_limit as usize
     }
 
     fn update(&mut self, rtt: Duration, num_inflight: usize, is_error: bool, is_canceled: bool) {
         if is_canceled {
             return;
         }
-        let limit = self.estimated_limit;
+        let current_limit = self.estimated_limit;
 
         let new_limit = if is_error || rtt > self.timeout {
             // Multiplicative decrease.
-            limit * self.backoff_ratio
-        } else if num_inflight * 2 >= limit as usize {
+            current_limit * self.backoff_ratio
+        } else if num_inflight * 2 >= current_limit as usize {
             // Additive increase — only when the system is reasonably loaded.
-            limit + 1.0
+            current_limit + 1.0
         } else {
             return;
         };
-        self.estimated_limit = new_limit.clamp(self.min_limit as f64, self.max_limit as f64);
+        self.estimated_limit = new_limit.clamp(self.min_limit, self.max_limit);
     }
 }
 
@@ -166,8 +166,8 @@ impl AimdBuilder {
 
         Aimd {
             estimated_limit: self.initial_limit as f64,
-            min_limit: self.min_limit,
-            max_limit: self.max_limit,
+            min_limit: self.min_limit as f64,
+            max_limit: self.max_limit as f64,
             backoff_ratio: self.backoff_ratio,
             timeout: self.timeout,
         }
