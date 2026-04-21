@@ -28,7 +28,7 @@ tracing = ["dep:tracing"]
 http = { version = "1", optional = true }
 loom = { version = "0.7", optional = true }
 pin-project-lite = "0.2"
-tokio = { version = "1.52.0", features = ["sync"] }
+tokio = { version = "1.52.1", features = ["sync"] }
 tokio-util = "0.7"
 tower-layer = { version = "0.3", optional = true }
 tracing = { version = "0.1", optional = true }
@@ -40,5 +40,5 @@ http = "1"
 http-body-util = "0.1"
 hyper = "1"
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
-tokio = { version = "1.52.0", features = ["full"] }
+tokio = { version = "1.52.1", features = ["full"] }
 tower = { version = "0.5", features = ["buffer", "load-shed"] }
